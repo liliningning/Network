@@ -34,7 +34,7 @@ int main()
 
     socklen_t len = sizeof(localAddress);
     /* 将本地的端口 和IP 绑定 */
-    int ret = bind(sockfd, (struct sockaddr_in *)&localAddress, len);
+    int ret = bind(sockfd, (struct sockaddr *)&localAddress, len);
     if (ret == -1)
     {
         perror("bind error");
@@ -62,11 +62,14 @@ int main()
     ret = select(maxfd + 1, &readSet, NULL, NULL, &timeValue);
 
 #else
-
+    /* 备份读集合 */
+    fd_set  tempreadSet = readSet; 
+    bzero((void * )&tempreadSet, sizeof(tempreadSet));
     int maxfd = sockfd;
     while (1)
-    {
-        ret = select(maxfd + 1, &readSet, NULL, NULL, NULL);
+    {  
+        tempreadSet = readSet; 
+        ret = select(maxfd + 1, &tempreadSet, NULL, NULL, NULL);
         if (ret == -1)
         {
             perror("select error");
@@ -74,7 +77,7 @@ int main()
         }
 #endif
         /* 如果sockfd 在 readSet里面 */
-        if (FD_ISSET(sockfd, &readSet))
+        if (FD_ISSET(sockfd, &tempreadSet))
         {
             int acceptfd = accept(sockfd, NULL, NULL);
             if (acceptfd == -1)
@@ -89,10 +92,12 @@ int main()
             maxfd = maxfd < acceptfd ? acceptfd : maxfd;
         }
 
+   
+
         /* idx 是select里面的句柄 可能有通信 */
         for (int idx = 0; idx <= maxfd; idx++)
         {
-            if (idx != sockfd && FD_ISSET(idx, &readSet))
+            if (idx != sockfd && FD_ISSET(idx, &tempreadSet))
             {
                 char buf[BUFSIZE];
                 bzero((void *)buf, sizeof(buf));
